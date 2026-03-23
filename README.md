@@ -1,5 +1,4 @@
-<img width="683" height="826" alt="image" src="https://github.com/user-attachments/assets/48deb04b-5b20-473f-ae39-ae9d174fd62c" />
-
+<img width="682" height="820" alt="Untitled" src="https://github.com/user-attachments/assets/ccb063ee-2862-47bb-b6b3-59c5e8c7169e" />
 
 Ctrl + R = Refresh
 Enter = rename
