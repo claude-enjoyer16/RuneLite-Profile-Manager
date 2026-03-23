@@ -87,6 +87,38 @@ def duplicate_profile(profiles2_dir: Path, profile: dict) -> dict:
     return new_profile
 
 
+def rename_profile(profiles2_dir: Path, profile: dict, new_name: str) -> None:
+    """Rename a profile, updating profiles.json and the .properties file.
+
+    Args:
+        profiles2_dir: Path to the profiles2 directory.
+        profile: The profile dict to rename.
+        new_name: The new name for the profile.
+
+    Raises:
+        ValueError: If profiles.json cannot be parsed.
+        OSError: If profiles.json or the .properties file cannot be read/written.
+    """
+    profiles_json = profiles2_dir / PROFILES_JSON
+    raw = json.loads(profiles_json.read_text(encoding="utf-8"))
+    all_entries = raw["profiles"]
+
+    target_id = profile["id"]
+    for entry in all_entries:
+        if entry.get("id") == target_id:
+            old_name = entry["name"]
+            entry["name"] = new_name
+            break
+
+    save_profiles_json(profiles2_dir, all_entries)
+
+    # Rename the .properties file if it exists.
+    old_props = profiles2_dir / f"{old_name}-{target_id}.properties"
+    new_props = profiles2_dir / f"{new_name}-{target_id}.properties"
+    if old_props.is_file():
+        old_props.rename(new_props)
+
+
 def delete_profile(profiles2_dir: Path, profile: dict) -> None:
     """Remove a profile entry from profiles.json.
 

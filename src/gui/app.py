@@ -16,7 +16,8 @@ def _get_assets_dir() -> Path:
     return Path(__file__).resolve().parent.parent.parent / "assets"
 
 ASSETS_DIR = _get_assets_dir()
-from src.core.profiles import load_profiles, delete_profile, duplicate_profile
+from tkinter import simpledialog
+from src.core.profiles import load_profiles, delete_profile, duplicate_profile, rename_profile
 from src.core.backup import create_backup
 from src.core.cleanup import find_orphaned_files, delete_orphaned_files
 
@@ -157,10 +158,19 @@ class ProfileManagerApp(tk.Tk):
 
         self._tree.bind("<<TreeviewSelect>>", self._on_selection_change)
         self._tree.bind("<Delete>", lambda _: self._on_delete())
+        self._tree.bind("<F2>", lambda _: self._on_rename())
+        self._tree.bind("<Return>", lambda _: self._on_rename())
+        self._tree.bind("<Control-r>", lambda _: self.refresh_list())
+        self._tree.bind("<Control-d>", lambda _: self._on_duplicate())
 
         # Action buttons (right)
         btn_frame = ttk.Frame(middle, padding=(10, 0, 0, 0))
         btn_frame.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self._btn_rename = ttk.Button(
+            btn_frame, text="Rename", command=self._on_rename, state=tk.DISABLED,
+        )
+        self._btn_rename.pack(fill=tk.X, pady=(0, 5))
 
         self._btn_duplicate = ttk.Button(
             btn_frame, text="Duplicate", command=self._on_duplicate, state=tk.DISABLED,
@@ -170,7 +180,11 @@ class ProfileManagerApp(tk.Tk):
         self._btn_delete = ttk.Button(
             btn_frame, text="Delete", command=self._on_delete, state=tk.DISABLED,
         )
-        self._btn_delete.pack(fill=tk.X)
+        self._btn_delete.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Button(
+            btn_frame, text="Refresh", command=self.refresh_list,
+        ).pack(fill=tk.X)
 
         # -- Bottom bar --
         bottom = ttk.Frame(self, padding=10)
@@ -234,6 +248,7 @@ class ProfileManagerApp(tk.Tk):
         """Enable/disable Duplicate and Delete based on selection."""
         selected = self._tree.selection()
         state = tk.NORMAL if selected else tk.DISABLED
+        self._btn_rename.config(state=state)
         self._btn_duplicate.config(state=state)
         self._btn_delete.config(state=state)
 
@@ -261,6 +276,36 @@ class ProfileManagerApp(tk.Tk):
 
         self._load_folder(profiles2)
 
+    def _on_rename(self):
+        profile = self._get_selected_profile()
+        if not profile:
+            return
+
+        new_name = simpledialog.askstring(
+            "Rename Profile",
+            "Enter new profile name:",
+            initialvalue=profile["name"],
+            parent=self,
+        )
+        if not new_name or new_name == profile["name"]:
+            return
+
+        try:
+            rename_profile(self._profiles2_dir, profile, new_name)
+        except (ValueError, OSError) as e:
+            messagebox.showerror("Error", f"Failed to rename profile:\n{e}")
+            return
+
+        self.refresh_list()
+
+        # Re-select the renamed profile and restore keyboard navigation.
+        iid = str(profile["id"])
+        if self._tree.exists(iid):
+            self._tree.selection_set(iid)
+            self._tree.see(iid)
+            self._tree.focus(iid)
+        self.after(10, self._tree.focus_set)
+
     def _on_duplicate(self):
         profile = self._get_selected_profile()
         if not profile:
@@ -274,11 +319,13 @@ class ProfileManagerApp(tk.Tk):
 
         self.refresh_list()
 
-        # Re-select the original profile.
+        # Re-select the original profile and restore keyboard navigation.
         iid = str(profile["id"])
         if self._tree.exists(iid):
             self._tree.selection_set(iid)
             self._tree.see(iid)
+            self._tree.focus(iid)
+        self.after(10, self._tree.focus_set)
 
     def _on_delete(self):
         profile = self._get_selected_profile()

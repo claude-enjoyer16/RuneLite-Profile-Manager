@@ -2,7 +2,7 @@
 
 import json
 
-from src.core.profiles import load_profiles, delete_profile, duplicate_profile, _next_copy_name
+from src.core.profiles import load_profiles, delete_profile, duplicate_profile, rename_profile, _next_copy_name
 
 
 def _make_profiles2(tmp_path, profiles_list):
@@ -151,3 +151,43 @@ def test_duplicate_increments_name(tmp_path):
     new = duplicate_profile(profiles2, {"id": 100, "name": "wheel"})
 
     assert new["name"] == "wheel (2)"
+
+
+# -- rename_profile --
+
+def test_rename_updates_json(tmp_path):
+    profiles2 = _make_profiles2(tmp_path, [
+        {"id": -1, "name": "$rsprofile", "sync": True, "rev": -1},
+        {"id": 100, "name": "Main", "sync": False, "rev": -1},
+    ])
+
+    rename_profile(profiles2, {"id": 100, "name": "Main"}, "PKing")
+
+    entries = _read_profiles_json(profiles2)
+    renamed = next(e for e in entries if e["id"] == 100)
+    assert renamed["name"] == "PKing"
+
+
+def test_rename_moves_properties_file(tmp_path):
+    profiles2 = _make_profiles2(tmp_path, [
+        {"id": 100, "name": "Main", "sync": False, "rev": -1},
+    ])
+    (profiles2 / "Main-100.properties").write_text("key=value", encoding="utf-8")
+
+    rename_profile(profiles2, {"id": 100, "name": "Main"}, "PKing")
+
+    assert not (profiles2 / "Main-100.properties").exists()
+    assert (profiles2 / "PKing-100.properties").is_file()
+    assert (profiles2 / "PKing-100.properties").read_text(encoding="utf-8") == "key=value"
+
+
+def test_rename_works_without_properties_file(tmp_path):
+    profiles2 = _make_profiles2(tmp_path, [
+        {"id": 100, "name": "Main", "sync": False, "rev": -1},
+    ])
+
+    rename_profile(profiles2, {"id": 100, "name": "Main"}, "PKing")
+
+    entries = _read_profiles_json(profiles2)
+    renamed = next(e for e in entries if e["id"] == 100)
+    assert renamed["name"] == "PKing"
